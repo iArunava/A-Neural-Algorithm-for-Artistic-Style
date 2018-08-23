@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import argparse
 
-from image_utils import *
+from utils import *
 
 FLAGS = None
 
