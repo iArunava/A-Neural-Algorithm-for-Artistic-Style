@@ -35,3 +35,29 @@ def show_images(images):
         plt.imshow(img)
     plt.show()
     return
+
+def preprocess_img(img):
+    return tf.keras.applications.vgg19.preprocess_img(img)
+
+def deprocess_img(img):
+    img_copy = img.copy()
+
+    if len(x.shape) == 4:
+        img_copy = np.squeeze(x, 0)
+    if len(x.shape) == 3:
+        raise ValueError('Invalid input! \n Input image must be of dimensions \
+                          [1, height, width, depth] or [height, width, depth]')
+
+    # Undoing the mean preprocessing
+    img_copy[:, :, 0] += 103.939
+    img_copy[:, :, 1] += 116.779
+    img_copy[:, :, 2] += 123.68
+
+    # Flipping BGR to RGB
+    img_copy = img_copy[:, :, ::-1]
+
+    # Clipping pixel values that are either below 0 or above 255
+    img_copy = np.clip(img_copy, 0, 255).astype('uint8')
+
+    return img_copy
+    

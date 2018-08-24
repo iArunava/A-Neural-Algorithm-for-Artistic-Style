@@ -43,5 +43,8 @@ if __name__ == '__main__':
     if FLAGS.show_images_at_start:
         show_images({'Content':content_img_arr, 'Style':style_img_arr})
 
+    content_prepr_img = preprocess_img(content_img_arr)
+    style_prepr_img = preprocess_img(style_img_arr)
+
     print (style_img_arr.shape)
     print (content_img_arr.shape)
