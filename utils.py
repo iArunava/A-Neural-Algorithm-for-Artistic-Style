@@ -37,7 +37,7 @@ def show_images(images):
     return
 
 def preprocess_img(img):
-    return tf.keras.applications.vgg19.preprocess_img(img)
+    return tf.keras.applications.vgg19.preprocess_input(img)
 
 def deprocess_img(img):
     img_copy = img.copy()
@@ -60,4 +60,3 @@ def deprocess_img(img):
     img_copy = np.clip(img_copy, 0, 255).astype('uint8')
 
     return img_copy
-    
