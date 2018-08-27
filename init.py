@@ -153,10 +153,10 @@ if __name__ == '__main__':
     init_img = tf.Variable(init_img, dtype=tf.float32)
 
     # Initializing Adam Optimizer
-    opt = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate, beta=0.99, epsilon=1e-1)
+    opt = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate, beta1=0.99, epsilon=1e-1)
 
     # Create a config to pass and compute the losses
-    loss_weights = (FLAGS.style_weight, FLAGS_content_weight)
+    loss_weights = (FLAGS.style_weight, FLAGS.content_weight)
     cfg = {
         'model' : vgg19,
         'loss_weights' : loss_weights,
@@ -164,6 +164,6 @@ if __name__ == '__main__':
         'gram_style_matrices' : gram_style_matrices,
         'content_features' : content_features
     }
-    
+
     print (style_img_arr.shape)
     print (content_img_arr.shape)
