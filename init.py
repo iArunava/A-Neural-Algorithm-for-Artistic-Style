@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import argparse
+import warnings
 
 from tensorflow.python.keras import models
 from tensorflow.python.keras import layers
@@ -9,6 +10,20 @@ from utils import *
 
 FLAGS = None
 WEIGHTS = './weights/vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5'
+
+def get_feature_representations(model, c_img, s_img, num_style_layers):
+    c_img = tf.convert_to_tensor(c_img, name='content_image_to_tensor')
+    s_img = tf.convert_to_tensor(s_img, name='style_image_to_tensor')
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        content_outputs = sess.run(model(c_img))
+        style_outputs = sess.run(model(s_img))
+
+    style_features = [s_out[0] for s_out in style_outputs[:num_style_layers]]
+    content_features = [c_out[0] for c_out in content_outputs[num_style_layers:]]
+
+    return style_features, content_features
+
 
 def get_model(style_layers, content_layers):
     # Load the model without the fully connected layers and pretrained on the imagenet dataset
@@ -84,6 +99,15 @@ if __name__ == '__main__':
 
     # Build and get the model
     vgg19 = get_model(style_layers, content_layers)
+
+    # Since we do not need to train the model, let's make its layers not trainable
+    for layer in vgg19.layers:
+        layer.trainable = False
+
+    style_features, content_features = get_feature_representations(vgg19,
+                                                                style_prepr_img,
+                                                                content_prepr_img,
+                                                                num_style_layers)
 
     print (style_img_arr.shape)
     print (content_img_arr.shape)
