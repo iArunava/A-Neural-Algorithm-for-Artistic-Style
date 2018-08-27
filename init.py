@@ -8,17 +8,24 @@ from tensorflow.python.keras import layers
 
 from utils import *
 
+warnings.filterwarnings('ignore')
+
 FLAGS = None
 WEIGHTS = './weights/vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
 def get_feature_representations(model, c_img, s_img, num_style_layers):
+    # Converting np.ndarray to tensor
     c_img = tf.convert_to_tensor(c_img, name='content_image_to_tensor')
     s_img = tf.convert_to_tensor(s_img, name='style_image_to_tensor')
+
+    # Running session to get the representation of the content and style image
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         content_outputs = sess.run(model(c_img))
         style_outputs = sess.run(model(s_img))
 
+    # Getting the respective representations while ignoring the particular Layers
+    # that we don't want in each of content and style outputs
     style_features = [s_out[0] for s_out in style_outputs[:num_style_layers]]
     content_features = [c_out[0] for c_out in content_outputs[num_style_layers:]]
 
