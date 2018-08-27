@@ -8,8 +8,6 @@ from tensorflow.python.keras import layers
 
 from utils import *
 
-warnings.filterwarnings('ignore')
-
 FLAGS = None
 WEIGHTS = './weights/vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
@@ -76,9 +74,18 @@ if __name__ == '__main__':
         help='If true, the content and style images are shown at beginning.\
               Default: False')
 
+    parser.add_argument('--show-warnings',
+        type=bool,
+        default=False,
+        help='If true, all warnings are shown \
+              Default: False')
+
     FLAGS, unparsed = parser.parse_known_args()
     if FLAGS.style_image == '' or FLAGS.content_image == '':
         raise Exception('Path to style or content image not provided')
+
+    if not FLAGS.show_warnings:
+        warnings.filterwarnings('ignore')
 
     # Loading Style and Content Image
     style_img_arr = load_image(FLAGS.style_image, FLAGS.max_dim)#.astype('uint8')
@@ -111,10 +118,18 @@ if __name__ == '__main__':
     for layer in vgg19.layers:
         layer.trainable = False
 
+    # Getting the style and content feature representations
     style_features, content_features = get_feature_representations(vgg19,
                                                                 style_prepr_img,
                                                                 content_prepr_img,
                                                                 num_style_layers)
+
+    # Getting the gram_matrices from the style representations
+    gram_style_matrices = [gram_matrix(s_feature) for s_feature in style_features]
+
+    # Set the initial image
+    init_img = content_prepr_img
+    init_img = tf.Variable(init_img, dtype=tf.float32)
 
     print (style_img_arr.shape)
     print (content_img_arr.shape)
