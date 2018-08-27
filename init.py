@@ -68,6 +68,21 @@ if __name__ == '__main__':
               If using something other than default value, prefer powers of 2 \
               helps in computation, e.g, 128, 256 etc.')
 
+    parser.add_argument('--learning-rate',
+        type=float,
+        default=5.0,
+        help='The Learning Rate to use.')
+
+    parser.add_argument('--style-weight',
+        type=float,
+        default=1e-2,
+        help='The style weight to use.')
+
+    parser.add_argument('--content-weight',
+        type=float,
+        default=1e-3,
+        help='The content weight to use.')
+
     parser.add_argument('--show-images-at-start',
         type=bool,
         default=False,
@@ -127,9 +142,28 @@ if __name__ == '__main__':
     # Getting the gram_matrices from the style representations
     gram_style_matrices = [gram_matrix(s_feature) for s_feature in style_features]
 
+    # For getting summaries at regular intervals
+    iter_count = 1
+
+    # Variables to store the best loss and best image
+    b_loss, b_img = float('inf'), None
+
     # Set the initial image
     init_img = content_prepr_img
     init_img = tf.Variable(init_img, dtype=tf.float32)
 
+    # Initializing Adam Optimizer
+    opt = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate, beta=0.99, epsilon=1e-1)
+
+    # Create a config to pass and compute the losses
+    loss_weights = (FLAGS.style_weight, FLAGS_content_weight)
+    cfg = {
+        'model' : vgg19,
+        'loss_weights' : loss_weights,
+        'init_image' : init_img,
+        'gram_style_matrices' : gram_style_matrices,
+        'content_features' : content_features
+    }
+    
     print (style_img_arr.shape)
     print (content_img_arr.shape)
