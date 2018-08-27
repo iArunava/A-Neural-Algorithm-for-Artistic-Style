@@ -5,6 +5,22 @@ import matplotlib.pyplot as plt
 from tensorflow.python.keras.preprocessing import image as kp_image
 from PIL import Image
 
+def gram_matrix(style_tensor):
+    # Getting the number of channels
+    channels = style_tensor.shape[-1]
+
+    # Reshaping style tensor to have image channels first
+    a = tf.reshape(style_tensor, [-1, channels])
+
+    # Getting the number of neurons in one row
+    # (or channel as one row of 'a' now contains
+    # all the neurons previously present in one channel)
+    n = tf.shape(a)[0]
+
+    # Getting the gram_matrix
+    gram_matrix = tf.divide(tf.matmul(a, a, transpose_a=True), tf.cast(n, tf.float32))
+    return gram_matrix
+
 def load_image(path, max_dim):
     img = Image.open(path)
 
