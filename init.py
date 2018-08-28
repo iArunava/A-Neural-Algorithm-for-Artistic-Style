@@ -11,6 +11,9 @@ from utils import *
 FLAGS = None
 WEIGHTS = './weights/vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
+def compute_grads(**loss_config):
+    pass
+
 def compute_loss(model, loss_weights, inp_img, content_features,
                  gram_style_matrices, num_style_layers, num_content_layers):
     # Getting the style and content weights from the loss_weights tuple
@@ -30,36 +33,40 @@ def compute_loss(model, loss_weights, inp_img, content_features,
     content_score = 0
 
     # Calculating the style scores
-    weight_per_style_layer = 1 / num_style_layers
-    for base_style, target_style in zip(s_output_features, gram_style_matrices):
-        style_score += get_style_loss(base_style, target_style)
+    weight_per_style_layer = tf.divide(1, num_style_layers)
+    s_elems = (s_output_features, gram_style_matrices)
+    style_score_list = tf.map_fn(lambda s : get_style_loss(s[0], s[1]), s_elems)
+    style_score = tf.reduce_sum(style_score_list)
 
     # Calculating the content loss
-    weight_per_content_layer = 1 / num_content_layers
-    for base_content, target_content in zip(c_output_features, content_features):
-        content_score += get_content_loss(base_content, target_content)
+    weight_per_content_layer = tf.divide(1, num_content_layers)
+    c_elems = (c_output_features, content_features)
+    content_score_list = tf.map_fn(lambda c : get_content_loss(c[0], c[1]), c_elems)
+    content_score = tf.reduce_sum(content_score_list)
 
     # Multiplying by the content and style weights to get the final style and content loss
-    style_score *= s_weight
-    content_score *= c_weight
+    style_score = tf.multiply(style_score, s_weight)
+    content_score = tf.multiply(content_score, c_weight)
 
     # Calculating the total loss
-    loss = style_score + content_loss
+    loss = tf.add(style_score, content_loss)
+    with tf.Session() as sess:
+        loss, style_score, content_score = sess.run(loss, style_score, content_score)
 
     return loss, style_score, content_score
 
 
 def get_style_loss(base_style, target_style):
     # Getting the number of channels, height, width
-    h, w, n = base_style.get_shape().as_list()
+    h, w, n = tf.shape(base_style)
 
     # Getting the gram_matrix representation of the base_style
     base_style_gram_matrix = gram_matrix(base_style)
 
     # Getting the loss a/c to the loss function in the paper
     c = tf.divide(1, (4 * n**2 * (h * w)**2), dtype=tf.float32)
-    e = tf.multiply(c, tf.reduce_mean(tf.square(base_style_gram_matrix - target_style), dtype=tf.float32)
-    with tf.Session() as sess():
+    e = tf.multiply(c, tf.reduce_mean(tf.square(base_style_gram_matrix - target_style), dtype=tf.float32))
+    with tf.Session() as sess:
         e = sess.run(e)
 
     return e
@@ -121,10 +128,15 @@ if __name__ == '__main__':
     parser.add_argument('--max-dim',
         type=int,
         default=512,
-        help='The Max dimensions to scale the input content and style images to. \
-              Default: 512 \
-              If using something other than default value, prefer powers of 2 \
+        help='the max dimensions to scale the input content and style images to. \
+              default: 512 \
+              if using something other than default value, prefer powers of 2 \
               helps in computation, e.g, 128, 256 etc.')
+
+    parser.add_argument('--epochs',
+        type=int,
+        default=1200,
+        help='Number of iterations to perform')
 
     parser.add_argument('--learning-rate',
         type=float,
@@ -158,6 +170,7 @@ if __name__ == '__main__':
         raise Exception('Path to style or content image not provided')
 
     if not FLAGS.show_warnings:
+        print ('her')
         warnings.filterwarnings('ignore')
 
     # Loading Style and Content Image
@@ -222,6 +235,16 @@ if __name__ == '__main__':
         'gram_style_matrices' : gram_style_matrices,
         'content_features' : content_features
     }
+
+    #for _ in FLAGS.epochs:
+    for _ in [1]:
+        total_loss, style_score, content_score = compute_loss(vgg19, loss_weights,
+                                                init_img, content_features,
+                                                gram_style_matrices, num_style_layers,
+                                                num_content_layers)
+
+        #grads_and_vars = opt.compute_grads(total_loss, var_list=init_img)
+        #grads_apply = opt.apply_gradients(grads_and_vars)
 
     print (style_img_arr.shape)
     print (content_img_arr.shape)
