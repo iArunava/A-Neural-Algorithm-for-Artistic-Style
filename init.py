@@ -11,6 +11,65 @@ from utils import *
 FLAGS = None
 WEIGHTS = './weights/vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
+def compute_loss(model, loss_weights, inp_img, content_features,
+                 gram_style_matrices, num_style_layers, num_content_layers):
+    # Getting the style and content weights from the loss_weights tuple
+    s_weight, c_weight = loss_weights
+
+    # Getting the stylized image
+    with tf.Session() as sess:
+        #sess.run(tf.global_variables_initializer())
+        model_outputs = model(inp_img)
+
+    # Getting the style and content features
+    s_output_features = model_outputs[:num_style_layers]
+    c_output_features = model_outputs[num_style_layers:]
+
+    # Variables to store the losses for style and content
+    style_score = 0
+    content_score = 0
+
+    # Calculating the style scores
+    weight_per_style_layer = 1 / num_style_layers
+    for base_style, target_style in zip(s_output_features, gram_style_matrices):
+        style_score += get_style_loss(base_style, target_style)
+
+    # Calculating the content loss
+    weight_per_content_layer = 1 / num_content_layers
+    for base_content, target_content in zip(c_output_features, content_features):
+        content_score += get_content_loss(base_content, target_content)
+
+    # Multiplying by the content and style weights to get the final style and content loss
+    style_score *= s_weight
+    content_score *= c_weight
+
+    # Calculating the total loss
+    loss = style_score + content_loss
+
+    return loss, style_score, content_score
+
+
+def get_style_loss(base_style, target_style):
+    # Getting the number of channels, height, width
+    h, w, n = base_style.get_shape().as_list()
+
+    # Getting the gram_matrix representation of the base_style
+    base_style_gram_matrix = gram_matrix(base_style)
+
+    # Getting the loss a/c to the loss function in the paper
+    c = tf.divide(1, (4 * n**2 * (h * w)**2), dtype=tf.float32)
+    e = tf.multiply(c, tf.reduce_mean(tf.square(base_style_gram_matrix - target_style), dtype=tf.float32)
+    with tf.Session() as sess():
+        e = sess.run(e)
+
+    return e
+
+def get_content_loss(base_content, target_content):
+    # Getting the content loss a/c to the content loss function in the paper
+    content_loss = tf.reduce_mean(tf.square(content_loss - target_content))
+    with tf.Session() as sess:
+        return sess.run(content_loss)
+
 def get_feature_representations(model, c_img, s_img, num_style_layers):
     # Converting np.ndarray to tensor
     c_img = tf.convert_to_tensor(c_img, name='content_image_to_tensor')
@@ -28,7 +87,6 @@ def get_feature_representations(model, c_img, s_img, num_style_layers):
     content_features = [c_out[0] for c_out in content_outputs[num_style_layers:]]
 
     return style_features, content_features
-
 
 def get_model(style_layers, content_layers):
     # Load the model without the fully connected layers and pretrained on the imagenet dataset
