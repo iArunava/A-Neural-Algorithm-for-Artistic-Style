@@ -1,7 +1,9 @@
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 import argparse
 import warnings
+import logging
 
 from tensorflow.python.keras import models
 from tensorflow.python.keras import layers
@@ -20,9 +22,9 @@ def compute_loss(model, loss_weights, inp_img, content_features,
     s_weight, c_weight = loss_weights
 
     # Getting the stylized image
-    with tf.Session() as sess:
+    #with tf.Session() as sess:
         #sess.run(tf.global_variables_initializer())
-        model_outputs = model(inp_img)
+    model_outputs = model(inp_img)
 
     # Getting the style and content features
     s_output_features = model_outputs[:num_style_layers]
@@ -32,52 +34,69 @@ def compute_loss(model, loss_weights, inp_img, content_features,
     style_score = 0
     content_score = 0
 
+    # Getting the gram matrices from the base style representations
+    s_output_gram_matrices = []
+    for i in range(len(s_output_features)):
+        s_output_gram_matrices.append(gram_matrix(s_output_features[i]))
+
     # Calculating the style scores
     weight_per_style_layer = tf.divide(1, num_style_layers)
-    s_elems = (s_output_features, gram_style_matrices)
-    style_score_list = tf.map_fn(lambda s : get_style_loss(s[0], s[1]), s_elems)
-    style_score = tf.reduce_sum(style_score_list)
+    for base_style, target_style in zip(s_output_features, gram_style_matrices):
+        style_score += weight_per_style_layer * get_style_loss(base_style, target_style)
 
     # Calculating the content loss
     weight_per_content_layer = tf.divide(1, num_content_layers)
-    c_elems = (c_output_features, content_features)
-    content_score_list = tf.map_fn(lambda c : get_content_loss(c[0], c[1]), c_elems)
-    content_score = tf.reduce_sum(content_score_list)
+    logging.debug(len(c_output_features))
+    print (len(c_output_features))
+    print (len(content_features))
+    for base_content, target_content in zip(c_output_features, content_features):
+        content_score += weight_per_content_layer * get_content_loss(base_content, target_content)
 
     # Multiplying by the content and style weights to get the final style and content loss
-    style_score = tf.multiply(style_score, s_weight)
-    content_score = tf.multiply(content_score, c_weight)
+    style_loss = tf.multiply(style_score, s_weight)
+    content_loss = tf.multiply(content_score, c_weight)
 
     # Calculating the total loss
-    loss = tf.add(style_score, content_loss)
+    total_loss = tf.add(style_loss, content_loss)
     with tf.Session() as sess:
-        loss, style_score, content_score = sess.run(loss, style_score, content_score)
+        style_loss = sess.run(style_loss)
+        content_loss = sess.run(content_loss)
+        total_loss = sess.run(total_loss)
 
-    return loss, style_score, content_score
+    return total_loss, style_loss, content_loss
 
 
 def get_style_loss(base_style, target_style):
     # Getting the number of channels, height, width
-    h, w, n = tf.shape(base_style)
+    with tf.name_scope('base_style_shapes'):
+        squeezed_base_style = tf.squeeze(base_style)
+        h = tf.cast(tf.convert_to_tensor(squeezed_base_style.shape[0], name='h'), dtype=tf.int64)
+        w = tf.cast(tf.convert_to_tensor(squeezed_base_style.shape[1], name='w'), dtype=tf.int64)
+        n = tf.cast(tf.convert_to_tensor(squeezed_base_style.shape[2], name='n'), dtype=tf.int64)
 
     # Getting the gram_matrix representation of the base_style
     base_style_gram_matrix = gram_matrix(base_style)
 
     # Getting the loss a/c to the loss function in the paper
-    c = tf.divide(1, (4 * n**2 * (h * w)**2), dtype=tf.float32)
-    e = tf.multiply(c, tf.reduce_mean(tf.square(base_style_gram_matrix - target_style), dtype=tf.float32))
+    c = tf.divide(1.0, (4.0 * tf.cast(tf.square(n), dtype=tf.float64) * tf.cast(tf.square(h * w), dtype=tf.float64)))
+    e = tf.multiply(c, tf.cast(tf.reduce_mean(tf.square(base_style_gram_matrix - target_style)), dtype=tf.float64))
     with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
         e = sess.run(e)
 
     return e
 
 def get_content_loss(base_content, target_content):
     # Getting the content loss a/c to the content loss function in the paper
-    content_loss = tf.reduce_mean(tf.square(content_loss - target_content))
+    base_content = tf.squeeze(base_content)
+    print (type(base_content), base_content.shape)
+    print (type(target_content), target_content.shape)
+    content_loss = tf.reduce_mean(tf.square(base_content - target_content))
     with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
         return sess.run(content_loss)
 
-def get_feature_representations(model, c_img, s_img, num_style_layers):
+def get_feature_representations(model, s_img, c_img, num_style_layers):
     # Converting np.ndarray to tensor
     c_img = tf.convert_to_tensor(c_img, name='content_image_to_tensor')
     s_img = tf.convert_to_tensor(s_img, name='style_image_to_tensor')
@@ -92,6 +111,14 @@ def get_feature_representations(model, c_img, s_img, num_style_layers):
     # that we don't want in each of content and style outputs
     style_features = [s_out[0] for s_out in style_outputs[:num_style_layers]]
     content_features = [c_out[0] for c_out in content_outputs[num_style_layers:]]
+
+    # TODO Remove prints
+    for s in style_outputs:
+        print ('from fea repre', s[0].shape)
+    for s in content_outputs:
+        print ('from fea repre', s[0].shape)
+    print ('content_img shape', c_img.shape)
+    print ('style_img shape', s_img.shape)
 
     return style_features, content_features
 
@@ -170,7 +197,6 @@ if __name__ == '__main__':
         raise Exception('Path to style or content image not provided')
 
     if not FLAGS.show_warnings:
-        print ('her')
         warnings.filterwarnings('ignore')
 
     # Loading Style and Content Image
@@ -220,7 +246,7 @@ if __name__ == '__main__':
     b_loss, b_img = float('inf'), None
 
     # Set the initial image
-    init_img = content_prepr_img
+    init_img = content_prepr_img.copy()
     init_img = tf.Variable(init_img, dtype=tf.float32)
 
     # Initializing Adam Optimizer

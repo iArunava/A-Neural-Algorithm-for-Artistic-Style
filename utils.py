@@ -58,12 +58,13 @@ def preprocess_img(img):
 def deprocess_img(img):
     img_copy = img.copy()
 
-    if len(x.shape) == 4:
+    if len(img_copy.shape) == 4:
         img_copy = np.squeeze(x, 0)
-    if len(x.shape) == 3:
+    if len(img_copy.shape) == 3:
         raise ValueError('Invalid input! \n Input image must be of dimensions \
                           [1, height, width, depth] or [height, width, depth]')
 
+    print (img_copy.shape)
     # Undoing the mean preprocessing
     img_copy[:, :, 0] += 103.939
     img_copy[:, :, 1] += 116.779
